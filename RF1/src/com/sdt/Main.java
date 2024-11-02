@@ -6,7 +6,7 @@ public class Main {
         Node lider = new Node("LIDER", true);
         lider.start();
 
-        // Inicializa nós comuns
+        // Inicializa os nós
         Node no1 = new Node("[No1]", false);
         Node no2 = new Node("[No2]", false);
         Node no3 = new Node("[No3]", false);
@@ -15,6 +15,5 @@ public class Main {
         no2.start();
         no3.start();
 
-        // Agora, o líder envia mensagens de sincronização e heartbeat, enquanto os nós comuns recebem as mensagens
     }
 }

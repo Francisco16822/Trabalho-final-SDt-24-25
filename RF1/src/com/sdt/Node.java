@@ -18,53 +18,34 @@ public class Node extends Thread {
     @Override
     public void run() {
         if (isLeader) {
-            startLeaderTasks();
-        } else {
-            receiveMessages();
-        }
-    }
+            // Se é líder, inicializa a transmissão de mensagens
+            SendTransmitter transmitter = new SendTransmitter(nodeId);
+            transmitter.start();
+        }else{
 
-    private void startLeaderTasks() {
-        while (true) {
-            try {
-                // Envia uma mensagem de sincronização como líder
-                sendMessage("Pedido de Sincronização de " + nodeId);
-
-                // Envia heartbeat para os nós comuns
-                sendMessage("HEARTBEAT de " + nodeId);
-
-                // Intervalo entre envios
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void sendMessage(String message) {
-        try (MulticastSocket socket = new MulticastSocket()) {
-            byte[] buffer = message.getBytes();
-            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-            socket.send(packet);
-            System.out.println(nodeId + " enviou: " + message);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        receiveMessages();}
     }
 
     private void receiveMessages() {
         try (MulticastSocket socket = new MulticastSocket(PORT)) {
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             socket.joinGroup(group);
-            System.out.println(nodeId + " conectado ao grupo multicast, aguardando mensagens...");
+
+            System.out.println(nodeId + " conectado ao grupo multicast, a aguardar mensagens...");
 
             while (true) {
                 byte[] buffer = new byte[256];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
-                System.out.println(nodeId + " recebeu: " + receivedMessage);
+
+                // Extrai o tipo de mensagem e o ID do nó remetente
+                String[] parts = receivedMessage.split(":");
+                String messageType = parts[0];
+                String senderId = parts[1];
+                
+                System.out.println(nodeId + " recebeu um " + messageType + " do " + senderId);
+
             }
         } catch (Exception e) {
             e.printStackTrace();
