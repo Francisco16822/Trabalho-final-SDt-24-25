@@ -3,8 +3,9 @@ package com.sdt;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.util.List;
 
-public class Node extends Thread {
+public class Node {
     private String nodeId;
     private boolean isLeader;
     private static final String MULTICAST_ADDRESS = "224.0.0.1";
@@ -15,40 +16,17 @@ public class Node extends Thread {
         this.isLeader = isLeader;
     }
 
-    @Override
-    public void run() {
+    public void start() {
         if (isLeader) {
-            // Se é líder, inicializa a transmissão de mensagens
+            // Se é líder, inicia a transmissão de mensagens a cada 5 segundos
             SendTransmitter transmitter = new SendTransmitter(nodeId);
-            transmitter.start();
-        }else{
-
-        receiveMessages();}
-    }
-
-    private void receiveMessages() {
-        try (MulticastSocket socket = new MulticastSocket(PORT)) {
-            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-            socket.joinGroup(group);
-
-            System.out.println(nodeId + " conectado ao grupo multicast, a aguardar mensagens...");
-
-            while (true) {
-                byte[] buffer = new byte[256];
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
-                String receivedMessage = new String(packet.getData(), 0, packet.getLength());
-
-                // Extrai o tipo de mensagem e o ID do nó remetente
-                String[] parts = receivedMessage.split(":");
-                String messageType = parts[0];
-                String senderId = parts[1];
-                
-                System.out.println(nodeId + " recebeu um " + messageType + " do " + senderId);
-
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            transmitter.startSending();
         }
+        else{
+
+        // A thread é criada para receber mensagens
+        MessageReceiver receiver = new MessageReceiver(nodeId);
+        receiver.start();}
     }
+
 }
