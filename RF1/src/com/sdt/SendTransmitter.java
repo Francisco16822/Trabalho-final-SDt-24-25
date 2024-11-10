@@ -1,49 +1,45 @@
-package com.sdt;
+package RF1.src.com.sdt;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.util.ArrayList;
 import java.util.List;
 
 public class SendTransmitter extends Thread {
     private static final String MULTICAST_ADDRESS = "224.0.0.1";
-    private static final int PORT = 4446;
+    private static final int PORT = 5555;
     private String nodeId;
+    private Leader leader;
+    private MessageList messageList;
 
-    // Tipos de mensagem
-    public enum MessageType {
-        SYNC_REQUEST,
-        HEARTBEAT
-    }
-
-    // Lista de mensagens a serem enviadas
-    private final List<String> messageQueue = new ArrayList<>();
-
-    public SendTransmitter(String nodeId) {
+    public SendTransmitter(String nodeId, Leader leader, MessageList messageList) {
         this.nodeId = nodeId;
+        this.leader = leader;
+        this.messageList = messageList;
     }
 
-    public void startSending() {
-        this.start();
+    public void sendDocumentUpdate(String documentId, String content) {
+        String updateMessage = "DOC_UPDATE:" + documentId + ":" + content;
+        messageList.addMessage(updateMessage);
+    }
+
+    public void sendCommit(String documentId) {
+        String commitMessage = "COMMIT:" + documentId;
+        messageList.addMessage(commitMessage);
+        System.out.println("Documento " + documentId + " tornado permanente.");
     }
 
     @Override
     public void run() {
         while (true) {
             try {
-                // Adiciona mensagens à lista
-                messageQueue.add(formatMessage(MessageType.SYNC_REQUEST));
-                messageQueue.add(formatMessage(MessageType.HEARTBEAT));
+                List<String> messagesToSend = messageList.createSendStructure();
 
-                // Intervalo de 5 segundos entre envios
+                for (String message : messagesToSend) {
+                    sendMulticastMessage(message);
+                }
+
                 Thread.sleep(5000);
-
-                // Envia a lista de mensagens
-                sendMessages();
-
-                // Limpa a lista após o envio
-                messageQueue.clear();
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -51,27 +47,13 @@ public class SendTransmitter extends Thread {
         }
     }
 
-    private String formatMessage(MessageType messageType) {
-        return messageType + ":" + nodeId;
-    }
-
-    private void sendMessages() {
+    private void sendMulticastMessage(String message) {
         try (MulticastSocket socket = new MulticastSocket()) {
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-
-            // Concatena todas as mensagens na lista numa única string
-            StringBuilder concatenatedMessages = new StringBuilder();
-            for (String message : messageQueue) {
-                concatenatedMessages.append(message).append(";");
-            }
-
-            // Envia a string concatenada como um pacote
-            byte[] buffer = concatenatedMessages.toString().getBytes();
+            byte[] buffer = message.getBytes();
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
             socket.send(packet);
-
-            System.out.println(nodeId + " enviou a lista de mensagens: " + concatenatedMessages);
-
+            System.out.println(nodeId + " enviou: " + message);
         } catch (Exception e) {
             e.printStackTrace();
         }
