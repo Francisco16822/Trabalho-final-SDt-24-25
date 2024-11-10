@@ -15,7 +15,7 @@ public class Leader extends UnicastRemoteObject implements LeaderInterface {
     private Map<String, String> documentVersions;
     private Map<String, Set<String>> ackMap;
     private MessageList messageList;
-    private static final int MAJORITY = 2;  // Define a maioria para 3 nos
+    private static final int MAJORITY = 2;  // Define a maioria para 3 nós
     private static final int ACK_PORT = 4447;  // Porta para receber ACKs
 
     public Leader(String nodeId, MessageList messageList) throws RemoteException {
