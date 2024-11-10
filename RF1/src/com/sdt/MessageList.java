@@ -1,4 +1,4 @@
-package RF1.src.com.sdt;
+package com.sdt;
 
 import java.util.ArrayList;
 import java.util.List;

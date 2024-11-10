@@ -1,4 +1,4 @@
-package RF1.src.com.sdt;
+package com.sdt;
 
 public class Main {
     public static void main(String[] args) {
