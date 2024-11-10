@@ -1,4 +1,4 @@
-package com.sdt;
+package RF1.src.com.sdt;
 
 public class Node {
     private String nodeId;

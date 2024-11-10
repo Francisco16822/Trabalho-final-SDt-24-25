@@ -1,11 +1,8 @@
-package com.sdt;
+package RF1.src.com.sdt;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Leader extends UnicastRemoteObject implements LeaderInterface {
     private String nodeId;
@@ -13,7 +10,7 @@ public class Leader extends UnicastRemoteObject implements LeaderInterface {
     private Map<String, String> documentVersions;
     private Map<String, Set<String>> ackMap;
     private MessageList messageList;
-    private static final int MAJORITY = 2;  // Define maioria para 3 elementos (E1, E2, E3)
+    private static final int MAJORITY = 2;
 
     public Leader(String nodeId, MessageList messageList) throws RemoteException {
         super();
@@ -27,7 +24,7 @@ public class Leader extends UnicastRemoteObject implements LeaderInterface {
     @Override
     public void updateDocument(String documentId, String content) throws RemoteException {
         documentVersions.put(documentId, content);
-        System.out.println("Documento " + documentId + " atualizado para nova versão pelo cliente.");
+        System.out.println("Documento " + documentId + " atualizado.");
         transmitter.sendDocumentUpdate(documentId, content);
     }
 
@@ -39,4 +36,7 @@ public class Leader extends UnicastRemoteObject implements LeaderInterface {
         }
     }
 
+    public void sendHeartbeat() {
+        transmitter.sendHeartbeat();
+    }
 }

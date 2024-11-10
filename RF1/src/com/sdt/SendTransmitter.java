@@ -1,4 +1,4 @@
-package com.sdt;
+package RF1.src.com.sdt;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -7,7 +7,7 @@ import java.util.List;
 
 public class SendTransmitter extends Thread {
     private static final String MULTICAST_ADDRESS = "224.0.0.1";
-    private static final int PORT = 5555;
+    private static final int PORT = 4446;
     private String nodeId;
     private Leader leader;
     private MessageList messageList;
@@ -29,6 +29,11 @@ public class SendTransmitter extends Thread {
         System.out.println("Documento " + documentId + " tornado permanente.");
     }
 
+    public void sendHeartbeat() {
+        String heartbeatMessage = "HEARTBEAT:" + nodeId;
+        messageList.addMessage(heartbeatMessage);
+    }
+
     @Override
     public void run() {
         while (true) {
@@ -39,7 +44,8 @@ public class SendTransmitter extends Thread {
                     sendMulticastMessage(message);
                 }
 
-                Thread.sleep(5000);
+                sendHeartbeat();  // Envia heartbeat regularmente
+                Thread.sleep(2000);
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
