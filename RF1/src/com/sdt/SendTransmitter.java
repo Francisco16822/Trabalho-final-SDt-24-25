@@ -45,7 +45,7 @@ public class SendTransmitter extends Thread {
                 }
 
                 sendHeartbeat();  // Envia heartbeat regularmente
-                Thread.sleep(2000);
+                Thread.sleep(5000);
 
             } catch (InterruptedException e) {
                 e.printStackTrace();

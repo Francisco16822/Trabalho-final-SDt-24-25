@@ -7,11 +7,10 @@ public class Main {
             Node leaderNode = new Node("Leader", true, messageList);
             leaderNode.start();
 
-            // Simulação de atualização de documento para teste
             Leader leader = leaderNode.getLeader();
             if (leader != null) {
                 try {
-                    Thread.sleep(2000);  // Pequena pausa para inicialização dos nós
+                    Thread.sleep(2000);  // Pausa para inicialização dos nós
                     leader.updateDocument("Doc1", "Versão Inicial");
                 } catch (Exception e) {
                     e.printStackTrace();
