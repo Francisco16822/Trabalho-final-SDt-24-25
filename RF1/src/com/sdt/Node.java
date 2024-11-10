@@ -1,4 +1,4 @@
-package RF1.src.com.sdt;
+package com.sdt;
 
 public class Node {
     private String nodeId;
@@ -32,6 +32,10 @@ public class Node {
             receiver = new MessageReceiver(nodeId, messageList);
             receiver.start();
         }
+    }
+
+    public Leader getLeader() {
+        return leader;
     }
 
     public String getNodeId() {

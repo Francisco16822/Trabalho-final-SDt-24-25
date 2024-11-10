@@ -1,22 +1,31 @@
-package RF1.src.com.sdt;
+package com.sdt;
 
 public class Main {
     public static void main(String[] args) {
 
-        // Verifica se o primeiro argumento é "leader" ou um identificador de nó (ex: "1", "2")
         if (args.length > 0 && args[0].equals("leader")) {
-            // Cria um MessageList compartilhado
+            // Cria uma instância compartilhada do MessageList para o líder
             MessageList messageList = new MessageList();
 
             // Inicia o líder
             Node leaderNode = new Node("Leader", true, messageList);
             leaderNode.start();
 
+            // Simula uma atualização de documento logo após o início para testar o fluxo de mensagens
+            Leader leader = leaderNode.getLeader();
+            if (leader != null) {
+                try {
+                    leader.updateDocument("Doc1", "Conteúdo inicial do documento");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
         } else if (args.length > 0 && args[0].matches("[0-9]+")) {
-            // Cria um MessageList compartilhado
+            // Cria uma instância compartilhada do MessageList para o nó
             MessageList messageList = new MessageList();
 
-            // Inicia um nó comum
+            // Inicia o nó
             Node node = new Node("Node" + args[0], false, messageList);
             node.start();
 
