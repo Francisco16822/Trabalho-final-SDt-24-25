@@ -3,42 +3,32 @@ package com.sdt;
 public class Node {
     private String nodeId;
     private boolean isLeader;
-    private MessageList messageList;
-    private Leader leader;
+    private Leader_RMI_Handler leader;
     private MessageReceiver receiver;
 
-    public Node(String nodeId, boolean isLeader, MessageList messageList) {
+    public Node(String nodeId, boolean isLeader) {
         this.nodeId = nodeId;
         this.isLeader = isLeader;
-        this.messageList = messageList;
     }
 
     public void start() {
         if (isLeader) {
             try {
-                // Inicializa o líder
-                leader = new Leader(nodeId, messageList);
+                leader = new Leader_RMI_Handler(nodeId);
                 System.out.println(nodeId + " iniciado como líder.");
 
-                // Inicia a thread de transmissão para o líder
-                SendTransmitter transmitter = new SendTransmitter(nodeId, leader, messageList);
-                transmitter.start();
-
+                java.rmi.registry.LocateRegistry.createRegistry(1099).rebind("Leader", leader);
+                System.out.println("Líder registrado no RMI.");
             } catch (Exception e) {
                 e.printStackTrace();
             }
         } else {
-            // Inicia o receptor de mensagens para um nó comum
-            receiver = new MessageReceiver(nodeId, messageList);
+            receiver = new MessageReceiver(nodeId, new MessageList());
             receiver.start();
         }
     }
 
-    public Leader getLeader() {
+    public Leader_RMI_Handler getLeader() {
         return leader;
-    }
-
-    public String getNodeId() {
-        return nodeId;
     }
 }
