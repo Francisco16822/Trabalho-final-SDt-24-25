@@ -5,5 +5,5 @@ import java.rmi.RemoteException;
 
 public interface LeaderInterface extends Remote {
     void updateDocument(String documentId, String content) throws RemoteException;
-    void receiveAck(String documentId, String nodeId) throws RemoteException; // Novo método
+    void receiveAck(String documentId, String nodeId) throws RemoteException;
 }

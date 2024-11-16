@@ -14,7 +14,6 @@ public class MessageList {
         messages.remove(message);
     }
 
-    // Retorna uma cópia das mensagens, garantindo segurança de leitura
     public synchronized List<String> getClone() {
         return new ArrayList<>(messages);
     }

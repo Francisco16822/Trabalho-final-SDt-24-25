@@ -1,68 +1,70 @@
 package com.sdt;
 
+import java.net.DatagramPacket;
+import java.net.InetAddress;
+import java.net.MulticastSocket;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class MessageReceiver extends Thread {
     private String nodeId;
     private MessageList messageList;
-    private Map<String, String> localDocuments = new HashMap<>(); // Armazena documentos sincronizados
-    private List<String> temporarySyncList = new ArrayList<>(); // Lista temporária para SYNC
-    private static final String LEADER_RMI_HOST = "localhost";
-    private static final int LEADER_RMI_PORT = 1099;
+    private static final String MULTICAST_ADDRESS = "224.0.0.1";
+    private static final int MULTICAST_PORT = 4446;
+
+    private List<String> tempUpdates = new ArrayList<>();
 
     public MessageReceiver(String nodeId, MessageList messageList) {
         this.nodeId = nodeId;
         this.messageList = messageList;
     }
 
+    private void sendAck(String documentId) {
+        try {
+            Registry registry = LocateRegistry.getRegistry("localhost");
+            LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
+            leader.receiveAck(documentId, nodeId);
+            System.out.println(nodeId + " enviou ACK via RMI para " + documentId);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void run() {
-        try {
-            Registry registry = LocateRegistry.getRegistry(LEADER_RMI_HOST, LEADER_RMI_PORT);
-            LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
+        try (MulticastSocket socket = new MulticastSocket(MULTICAST_PORT)) {
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            socket.joinGroup(group);
 
             while (true) {
-                List<String> messages = messageList.getClone();
-                for (String message : messages) {
-                    if (message.startsWith("DOC_UPDATE")) {
-                        String[] parts = message.split(":");
-                        String documentId = parts[1];
-                        String content = parts[2];
-                        temporarySyncList.add(documentId);
-                        localDocuments.put(documentId, content); // Armazena localmente o documento
-                        sendAck(documentId, leader); // Envia ACK via RMI
-                    } else if (message.startsWith("COMMIT")) {
-                        String documentId = message.split(":")[1];
-                        commitDocument(documentId);
-                    }
+                byte[] buffer = new byte[256];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+                String receivedMessage = new String(packet.getData(), 0, packet.getLength());
+
+                if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
+                    String[] parts = receivedMessage.split(":");
+                    String documentId = parts[0];
+                    String content = parts[1];
+                    tempUpdates.add(receivedMessage);
+                    System.out.println(nodeId + " recebeu atualização SYNC.");
+                    sendAck(documentId); // Envia ACK via RMI
+                } else if (receivedMessage.startsWith("HEARTBEAT COMMIT")) {
+                    applyTempUpdates();
+                    System.out.println(nodeId + " aplicou atualizações COMMIT.");
                 }
-                Thread.sleep(1000); // Reduz carga
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void sendAck(String documentId, LeaderInterface leader) {
-        try {
-            leader.receiveAck(documentId, nodeId);
-            System.out.println(nodeId + " enviou ACK para documento: " + documentId);
-        } catch (Exception e) {
-            e.printStackTrace();
+    private void applyTempUpdates() {
+        for (String update : tempUpdates) {
+            messageList.addMessage(update);
         }
-    }
-
-    private void commitDocument(String documentId) {
-        System.out.println(nodeId + " commitando documento: " + documentId);
-        if (temporarySyncList.contains(documentId)) {
-            String content = localDocuments.get(documentId);
-            System.out.println("Documento " + documentId + " sincronizado com conteúdo: " + content);
-            temporarySyncList.remove(documentId);
-        }
+        tempUpdates.clear();
     }
 }

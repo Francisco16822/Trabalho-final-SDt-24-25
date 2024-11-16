@@ -12,24 +12,27 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private SendTransmitter transmitter;
     private Map<String, String> documentVersions;
     private Map<String, Set<String>> ackMap;
-    private static final int MAJORITY = 2; // Define a maioria para 3 nós
+    private MessageList messageList;
+    private static final int MAJORITY = 2;  // Define a maioria para 3 nós
 
-    public Leader_RMI_Handler(String nodeId) throws RemoteException {
+    public Leader_RMI_Handler(String nodeId, MessageList messageList) throws RemoteException {
         super();
         this.nodeId = nodeId;
         this.documentVersions = new HashMap<>();
         this.ackMap = new HashMap<>();
-        this.transmitter = new SendTransmitter(nodeId, this);
+        this.messageList = messageList;
+        this.transmitter = new SendTransmitter(nodeId, this, messageList);
     }
 
     @Override
-    public synchronized void updateDocument(String documentId, String content) throws RemoteException {
+    public void updateDocument(String documentId, String content) throws RemoteException {
         documentVersions.put(documentId, content);
-        System.out.println("Documento " + documentId + " atualizado pelo cliente.");
+        System.out.println("Documento " + documentId + " atualizado para a nova versão pelo cliente.");
         transmitter.sendDocumentUpdate(documentId, content);
     }
 
-    public synchronized void receiveAck(String documentId, String nodeId) {
+    @Override
+    public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
         ackMap.computeIfAbsent(documentId, k -> new HashSet<>()).add(nodeId);
         if (ackMap.get(documentId).size() >= MAJORITY) {
             transmitter.sendCommit(documentId);
