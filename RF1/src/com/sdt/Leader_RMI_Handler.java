@@ -14,6 +14,10 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private List<String> pendingUpdates;
     private List<String> activeNodes;
 
+    private Map<String, Set<String>> pendingAckRequests = new HashMap<>(); // Pedidos pendentes de ACK por documento
+    private Map<String, Integer> failedAckCounts = new HashMap<>(); // Contagem de falhas consecutivas por nó
+
+
 
     private List<String> transactionLog = new ArrayList<>();
 
@@ -26,6 +30,9 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         this.transmitter = new SendTransmitter(nodeId, this, messageList);
         this.pendingUpdates = new ArrayList<>();
         this.activeNodes = new ArrayList<>();
+        this.failedAckCounts = new HashMap<>();
+
+        startAckMonitor();
     }
 
     // Método para adicionar um nó à lista de nós ativos
@@ -109,10 +116,17 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
     @Override
     public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
-        ackMap.computeIfAbsent(documentId, k -> new HashSet<>()).add(nodeId);
-        if (ackMap.get(documentId).size() >= MAJORITY) {
-            transmitter.sendCommit(documentId);
-            ackMap.remove(documentId);
+        Set<String> pendingNodes = pendingAckRequests.get(documentId);
+        if (pendingNodes != null && pendingNodes.contains(nodeId)) {
+            pendingNodes.remove(nodeId); // Nó respondeu
+            failedAckCounts.put(nodeId, 0); // Reset à contagem de falhas
+            System.out.println("ACK recebido de " + nodeId + " para " + documentId);
+
+            // Se todos responderam, remover o pedido
+            if (pendingNodes.isEmpty()) {
+                pendingAckRequests.remove(documentId);
+                transmitter.sendCommit(documentId); // Envia COMMIT
+            }
         }
     }
 
@@ -140,4 +154,47 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
             }
         }
     }
+
+
+    //Sprint 4
+
+    //Método para rastrear pedidos de ACK
+    private synchronized void trackAckRequests(String documentId) {
+        pendingAckRequests.putIfAbsent(documentId, new HashSet<>(activeNodes)); // Aguardar ACK de todos os nós
+    }
+
+    private synchronized void checkForFailedNodes() throws RemoteException {
+        for (Map.Entry<String, Set<String>> entry : pendingAckRequests.entrySet()) {
+            String documentId = entry.getKey();
+            Set<String> pendingNodes = entry.getValue();
+
+            for (String nodeId : new HashSet<>(pendingNodes)) {
+                // Incrementar falhas consecutivas para nós que não responderam
+                failedAckCounts.put(nodeId, failedAckCounts.getOrDefault(nodeId, 0) + 1);
+
+                // Se ultrapassar o limite de falhas, remover nó
+                if (failedAckCounts.get(nodeId) >= 2) {
+                    System.out.println(nodeId + " Falha no envio de ACK's. O nó será removido");
+                    removeNode(nodeId);
+                    pendingNodes.remove(nodeId); // Remover da lista de pendentes
+                }
+            }
+        }
+    }
+
+    private void startAckMonitor() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(5000); // Verificar a cada 5 segundos
+                    checkForFailedNodes();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
 }

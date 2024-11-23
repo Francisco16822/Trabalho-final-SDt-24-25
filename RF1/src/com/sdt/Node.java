@@ -15,6 +15,7 @@ public class Node {
     public Node(String nodeId, MessageList messageList) {
         this.nodeId = nodeId;
         this.messageList = messageList;
+        //o start deve ser chamado aqui
     }
 
     public void start() {
@@ -68,37 +69,6 @@ public class Node {
         }
     }
 
-    // Método para notificar o líder sobre a saída do nó
-    public void notifyNodeExit() {
-        try {
-
-            leader.handleNodeExit(nodeId);
-            System.out.println("Nó " + nodeId + " foi notificado sobre saída.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Erro ao notificar saída para o líder.");
-        }
-    }
-
-    // Método para desligar o nó
-    public void shutdown() {
-        try {
-
-            notifyNodeExit();
-
-
-            if (receiver != null) {
-                receiver.stop();
-            }
-            if (sendTransmitter != null) {
-                sendTransmitter.stop();
-            }
-
-            System.out.println("Nó " + nodeId + " saiu do sistema.");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     // Método principal para inicializar o nó
     public static void main(String[] args) {
@@ -109,7 +79,7 @@ public class Node {
 
         try {
             Thread.sleep(5000);
-            node.shutdown();  // Simula a saída do nó
+            //node.shutdown();  // Simula a saída do nó
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

@@ -17,8 +17,6 @@ public class SendTransmitter extends Thread {
     private MessageList messageList;
 
 
-
-
     private List<String> tempUpdates = new ArrayList<>();
     private MulticastSocket socket;
 
@@ -88,24 +86,12 @@ public class SendTransmitter extends Thread {
         tempUpdates.clear();
     }
 
-    // Método para comprimir dados antes de enviar
-    private byte[] compressData(String data) {
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
-            gzipOutputStream.write(data.getBytes());
-            gzipOutputStream.close();
-            return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return data.getBytes();
-        }
-    }
 
     // Método para enviar a mensagem por multicast
     private void sendMulticastMessage(String message) {
         try {
-            byte[] compressedMessage = compressData(message);
-            DatagramPacket packet = new DatagramPacket(compressedMessage, compressedMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);
+            byte[] plainMessage = message.getBytes();
+            DatagramPacket packet = new DatagramPacket(plainMessage, plainMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);
             socket.send(packet);
             System.out.println(nodeId + " enviou: " + message);
         } catch (Exception e) {
@@ -157,9 +143,8 @@ public class SendTransmitter extends Thread {
     // Método auxiliar para enviar a mensagem de notificação para um nó específico via multicast
     private void sendMulticastMessageToNode(String nodeId, String message) throws RemoteException {
         try {
-            byte[] compressedMessage = compressData(message);
-            DatagramPacket packet = new DatagramPacket(compressedMessage, compressedMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);
-            socket.send(packet);
+            byte[] plainMessage = message.getBytes();
+            DatagramPacket packet = new DatagramPacket(plainMessage, plainMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);            socket.send(packet);
             System.out.println(nodeId + " recebeu a notificação de novo nó: " + message);
         } catch (Exception e) {
             e.printStackTrace();
