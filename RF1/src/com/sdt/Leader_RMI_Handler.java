@@ -169,6 +169,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
     //Sprint 4
 
+    // FALTA POR ISTO A FUNCIONAR
     private synchronized void trackAckRequests(String documentId) {
         ackMap.putIfAbsent(documentId, new HashSet<>(activeNodes)); // Aguardar ACK de todos os nós
         ackCountMap.put(documentId, 0); // Inicializa contador de ACKs como 0
