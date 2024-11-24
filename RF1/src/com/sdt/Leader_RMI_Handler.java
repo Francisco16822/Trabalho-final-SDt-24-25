@@ -15,7 +15,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private List<String> activeNodes;
     private Map<String, Integer> ackCountMap = new HashMap<>();
 
-    private Map<String, Set<String>> pendingAckRequests = new HashMap<>(); // Pedidos pendentes de ACK por documento
+    private Map<String, Set<String>> pendingAckRequests; // Pedidos pendentes de ACK por documento
     private Map<String, Integer> failedAckCounts = new HashMap<>(); // Contagem de falhas consecutivas por nó
 
 
@@ -32,6 +32,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         this.pendingUpdates = new ArrayList<>();
         this.activeNodes = new ArrayList<>();
         this.failedAckCounts = new HashMap<>();
+        this.pendingAckRequests = new HashMap<>();
 
         startAckMonitor();
     }
@@ -121,34 +122,22 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
     @Override
     public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
-        // Verificar se o nó é ativo
-        if (!activeNodes.contains(nodeId)) {
-            System.out.println("ACK recebido de um nó não ativo: " + nodeId);
-            return;
-        }
-
-        ackMap.putIfAbsent(documentId, new HashSet<>()); // Inicializa um conjunto para o documento, se necessário
+        ackMap.putIfAbsent(documentId, new HashSet<>());
         if (ackMap.get(documentId).contains(nodeId)) {
             return;
         }
 
         ackMap.get(documentId).add(nodeId);
 
-        // Inicializar contador para o documento, se necessário
-        ackCountMap.putIfAbsent(documentId, 0);
-
-        // Incrementar o contador de ACKs para o documento
-        ackCountMap.put(documentId, ackCountMap.get(documentId) + 1);
-        System.out.println("ACK recebido de " + nodeId + " ----> " + documentId);
-
         // Calcular o quorum necessário
         float majority = (float) Math.ceil(activeNodes.size() / 2.0);
 
-        // Verificar se o quorum foi atingido
-        if (ackCountMap.get(documentId) >= majority) {
-            System.out.println("Maioria atingida para o documento " + documentId + ". Enviando COMMIT.\n");
-            ackCountMap.remove(documentId); // Limpar contador após atingir o quorum
-            transmitter.sendCommit(documentId); // Enviar o COMMIT
+        ackMap.computeIfAbsent(documentId, k -> new HashSet<>()).add(nodeId);
+        if (ackMap.get(documentId).size() >= majority) {
+            transmitter.sendCommit(documentId);
+            if (ackMap.get(documentId).size() == activeNodes.size()){
+            ackMap.remove(documentId);}
+            else {trackAckRequests(documentId);}
         }
     }
 
@@ -168,11 +157,11 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     }
 
 
+
     private void notifyActiveNodesAboutNewNode(String newNodeId) throws RemoteException {
         for (String activeNodeId : activeNodes) {
             if (!activeNodeId.equals(newNodeId)) {
                 transmitter.sendNewNodeNotificationToNode(activeNodeId, newNodeId);
-                System.out.println("A notificar o nó " + activeNodeId + " sobre o novo nó " + newNodeId);
             }
         }
     }
@@ -180,15 +169,14 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
     //Sprint 4
 
-    //Método para rastrear pedidos de ACK
     private synchronized void trackAckRequests(String documentId) {
-        pendingAckRequests.putIfAbsent(documentId, new HashSet<>(activeNodes)); // Aguardar ACK de todos os nós
+        ackMap.putIfAbsent(documentId, new HashSet<>(activeNodes)); // Aguardar ACK de todos os nós
         ackCountMap.put(documentId, 0); // Inicializa contador de ACKs como 0
     }
 
+    //Método para rastrear pedidos de ACK
     private synchronized void checkForFailedNodes() throws RemoteException {
-        for (Map.Entry<String, Set<String>> entry : pendingAckRequests.entrySet()) {
-
+        for (Map.Entry<String, Set<String>> entry : ackMap.entrySet()) {
             for (String nodeId : new HashSet<>(activeNodes)) {
                 // Incrementar falhas consecutivas para nós que não responderam
                 failedAckCounts.put(nodeId, failedAckCounts.getOrDefault(nodeId, 0) + 1);
@@ -201,6 +189,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
             }
         }
     }
+
 
     private void startAckMonitor() {
         new Thread(() -> {

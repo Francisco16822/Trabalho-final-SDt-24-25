@@ -37,26 +37,22 @@ public class SendTransmitter extends Thread {
 
 
     public void sendDocumentUpdate(String documentId, String content) {
-        long timestamp = System.currentTimeMillis();
-        String updateMessage = "SYNC " + documentId + ":" + content + ":" + timestamp;
-        messageList.addMessage(updateMessage, true);  // Adiciona como pendente
-        System.out.println(nodeId + " enviou atualização para o documento: " + documentId);
-        sendMulticastMessage(updateMessage);
+        String updateMessage = " SYNC " + documentId + ":" + content;
+        messageList.addMessage(updateMessage);
     }
 
 
     public void sendCommit(String documentId) {
-        String commitMessage = "COMMIT " + documentId;
-        messageList.addMessage(commitMessage, false); // Adiciona como comitado
+        String commitMessage = " COMMIT " + documentId;
+        messageList.addMessage(commitMessage);
         System.out.println("Documento " + documentId + " tornado permanente.");
-        sendMulticastMessage(commitMessage);
     }
 
 
     public void sendHeartbeat() {
         List<String> allMessages = messageList.createSendStructure();
         String consolidatedHeartbeat = String.join(";", allMessages);
-        sendMulticastMessage("HEARTBEAT " + consolidatedHeartbeat);
+        sendMulticastMessage("HEARTBEAT" + consolidatedHeartbeat);
     }
 
     @Override
@@ -84,7 +80,7 @@ public class SendTransmitter extends Thread {
             long timestamp = Long.parseLong(parts[2].trim());
 
 
-            messageList.addMessage(update, true);
+            messageList.addMessage(update);
             System.out.println(nodeId + " adicionou atualização pendente: " + documentId);
         }
         tempUpdates.clear();

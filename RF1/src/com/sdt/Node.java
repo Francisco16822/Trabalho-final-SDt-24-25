@@ -56,13 +56,13 @@ public class Node {
                 System.out.println("Documento Sincronizado: " + documentId + " -> " + content);
 
 
-                messageList.addMessage("SYNC " + documentId + ":" + content + ":" + System.currentTimeMillis(), true);
+                messageList.addMessage("SYNC " + documentId + ":" + content + ":" + System.currentTimeMillis());
             }
 
 
             for (String update : pendingUpdates) {
                 System.out.println("Aplicação de atualização pendente: " + update);
-                messageList.addMessage(update, true);
+                messageList.addMessage(update);
             }
         } catch (Exception e) {
             e.printStackTrace();

@@ -14,12 +14,6 @@ public class Main {
 
                 new SendTransmitter("Leader", leader, messageList).start();
 
-
-                //leader.updateDocument("doc1", "Conteúdo do documento 1");
-                //leader.updateDocument("doc2", "Conteúdo do documento 2");
-
-
-
             } catch (Exception e) {
                 e.printStackTrace();
             }

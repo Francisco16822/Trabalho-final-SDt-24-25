@@ -8,12 +8,8 @@ public class MessageList {
     private List<String> pendingMessages = new ArrayList<>();
 
 
-    public synchronized void addMessage(String message, boolean isPending) {
-        if (isPending) {
-            pendingMessages.add(message);
-        } else {
-            messages.add(message);
-        }
+    public synchronized void addMessage(String message) {
+        messages.add(message);
     }
 
     // Prepara as mensagens para envio e limpa a lista

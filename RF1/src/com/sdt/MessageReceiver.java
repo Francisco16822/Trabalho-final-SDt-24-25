@@ -23,7 +23,6 @@ public class MessageReceiver extends Thread {
 
     private void sendAck(String documentId) {
         try {
-
             Registry registry = LocateRegistry.getRegistry("localhost");
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
             leader.receiveAck(documentId, nodeId);
@@ -45,31 +44,18 @@ public class MessageReceiver extends Thread {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
-
-
                 System.out.println(nodeId + " recebeu: " + receivedMessage);
 
-
-                if (receivedMessage.startsWith("SYNC")) {
+                if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
                     String[] parts = receivedMessage.split(":");
-                    String documentId = parts[0].replace("SYNC ", "").trim();
-                    String content = parts[1].trim();
-
-
+                    String documentId = parts[0];
+                    String content = parts[1];
                     tempUpdates.add(receivedMessage);
-                    System.out.println(nodeId + " recebeu atualização SYNC do documento: " + documentId);
-
-
-                    sendAck(documentId);
-
-                } else if (receivedMessage.startsWith("COMMIT")) {
-
-                    String documentId = receivedMessage.split(" ")[1].trim();
+                    System.out.println(nodeId + " recebeu atualização SYNC.");
+                    sendAck(documentId); // Envia ACK via RMI
+                } else if (receivedMessage.startsWith("HEARTBEAT COMMIT")) {
                     applyTempUpdates();
-                    System.out.println(nodeId + " aplicou atualizações COMMIT para o documento: " + documentId);
-
-
-                    sendAck(documentId);
+                    System.out.println(nodeId + " aplicou atualizações COMMIT.");
                 }
             }
         } catch (Exception e) {
@@ -80,7 +66,7 @@ public class MessageReceiver extends Thread {
     private void applyTempUpdates() {
 
         for (String update : tempUpdates) {
-            messageList.addMessage(update, true); // Adiciona como pendente (SYNC)
+            messageList.addMessage(update); // Adiciona como pendente (SYNC)
             System.out.println(nodeId + " adicionou atualização pendente: " + update);
         }
         tempUpdates.clear();
