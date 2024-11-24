@@ -26,7 +26,7 @@ public class MessageReceiver extends Thread {
             Registry registry = LocateRegistry.getRegistry("localhost");
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
             leader.receiveAck(documentId, nodeId);
-            System.out.println(nodeId + " enviou ACK via RMI para " + documentId);
+            System.out.println(nodeId + " enviou ACK via RMI para o líder");
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Erro ao enviar ACK para o líder.");
@@ -67,7 +67,7 @@ public class MessageReceiver extends Thread {
 
         for (String update : tempUpdates) {
             messageList.addMessage(update); // Adiciona como pendente (SYNC)
-            System.out.println(nodeId + " adicionou atualização pendente: " + update);
+            //System.out.println(nodeId + " adicionou atualização pendente: " + update);
         }
         tempUpdates.clear();
     }

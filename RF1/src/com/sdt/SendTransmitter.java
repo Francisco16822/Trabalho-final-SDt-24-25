@@ -4,8 +4,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.io.*;
 import java.util.zip.GZIPOutputStream;
 
@@ -17,7 +16,7 @@ public class SendTransmitter extends Thread {
     private MessageList messageList;
     private boolean isLeader;
 
-
+    private Set<String> committedDocuments = new HashSet<>();
     private List<String> tempUpdates = new ArrayList<>();
     private MulticastSocket socket;
 
@@ -43,9 +42,16 @@ public class SendTransmitter extends Thread {
 
 
     public void sendCommit(String documentId) {
-        String commitMessage = " COMMIT " + documentId;
-        messageList.addMessage(commitMessage);
-        System.out.println("Documento " + documentId + " tornado permanente.");
+        //Tira a parte "HEARTBEAT SYNC" do nome do documeto
+        String cleanDocumentId = documentId.replace("HEARTBEAT SYNC", "").trim();
+        String commitMessage = " COMMIT " + cleanDocumentId;
+
+        //Condição para nao mostrar mensagem repetida
+        if (!committedDocuments.contains(cleanDocumentId)) {
+            committedDocuments.add(cleanDocumentId);
+            messageList.addMessage(commitMessage);
+            System.out.println("Documento " + cleanDocumentId + " tornado permanente.\n");
+        }
     }
 
 
@@ -132,8 +138,8 @@ public class SendTransmitter extends Thread {
     public void sendNewNodeNotificationToNode(String activeNodeId, String newNodeId) throws RemoteException {
         try {
             String message = "NEW_NODE " + newNodeId;
+            System.out.println("\nNotificação enviada para o nó " + activeNodeId + " sobre o novo nó " + newNodeId);
             sendMulticastMessageToNode(activeNodeId, message);
-            System.out.println("Notificação enviada para o nó " + activeNodeId + " sobre o novo nó " + newNodeId);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RemoteException("Erro ao enviar notificação de novo nó para o nó " + activeNodeId, e);
@@ -146,7 +152,6 @@ public class SendTransmitter extends Thread {
             byte[] plainMessage = message.getBytes();
             DatagramPacket packet = new DatagramPacket(plainMessage, plainMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);
             socket.send(packet);
-            System.out.println(nodeId + " recebeu a notificação de novo nó: " + message);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RemoteException("Erro ao enviar a mensagem multicast para o nó " + nodeId, e);

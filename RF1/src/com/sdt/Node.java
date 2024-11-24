@@ -69,19 +69,4 @@ public class Node {
         }
     }
 
-
-    // Método principal para inicializar o nó
-   /* public static void main(String[] args) {
-
-        Node node = new Node("Node1", new MessageList());
-        node.start();
-
-
-        try {
-            Thread.sleep(5000);
-            //node.shutdown();  // Simula a saída do nó
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }*/
 }

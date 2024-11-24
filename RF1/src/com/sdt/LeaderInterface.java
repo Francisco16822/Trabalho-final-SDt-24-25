@@ -18,5 +18,5 @@ public interface LeaderInterface extends Remote {
 
 
     void addNode(String nodeId) throws RemoteException;
-    void handleNodeExit(String nodeId) throws RemoteException;
+    //void handleNodeExit(String nodeId) throws RemoteException;
 }

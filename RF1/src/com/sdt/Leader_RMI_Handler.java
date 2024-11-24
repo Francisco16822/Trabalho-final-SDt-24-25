@@ -10,15 +10,13 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private Map<String, String> documentVersions;
     private Map<String, Set<String>> ackMap;
     private MessageList messageList;
-    private static final int MAJORITY = 2;
+    //private static final int MAJORITY = 2;
     private List<String> pendingUpdates;
     private List<String> activeNodes;
     private Map<String, Integer> ackCountMap = new HashMap<>();
 
     private Map<String, Set<String>> pendingAckRequests; // Pedidos pendentes de ACK por documento
     private Map<String, Integer> failedAckCounts = new HashMap<>(); // Contagem de falhas consecutivas por nó
-
-
 
     private List<String> transactionLog = new ArrayList<>();
 
@@ -53,15 +51,14 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     public synchronized void removeNode(String nodeId) throws RemoteException {
         activeNodes.remove(nodeId);
         redistributeDocuments(nodeId);
-        System.out.println("Nó " + nodeId + " removido da lista de nós ativos.\n");
+        System.out.println("Nó " + nodeId + " removido da lista de nós ativos.");
     }
 
-    // Método para lidar com a saída de um nó
-    public synchronized void handleNodeExit(String nodeId) throws RemoteException {
+    /*public synchronized void handleNodeExit(String nodeId) throws RemoteException {
 
         removeNode(nodeId);
         System.out.println("Nó " + nodeId + " removido da lista de nós ativos.");
-    }
+    }*/
 
 
     private void sendDocumentsToNewNode(String nodeId) throws RemoteException {
@@ -91,7 +88,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
             }
         }
 
-        // Redistribui as atualizações pendentes aos nós ativos
         for (String updateMessage : pendingUpdates) {
             for (String activeNodeId : activeNodes) {
                 if (!activeNodeId.equals(nodeId)) {
@@ -106,13 +102,13 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         String transaction = documentId + ":" + content + ":" + System.currentTimeMillis();
         transactionLog.add(transaction);
         System.out.println("Transação registada: " + transaction);
-        System.out.println();
     }
 
     @Override
     public void updateDocument(String documentId, String content) throws RemoteException {
         documentVersions.put(documentId, content);
-        System.out.println(documentId + " atualizado para a nova versão pelo cliente.\n");
+        System.out.println();
+        System.out.println(documentId + " atualizado para a nova versão pelo cliente.");
         ackCountMap.put(documentId, 0);
         transmitter.sendDocumentUpdate(documentId, content);
 
@@ -129,7 +125,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
         ackMap.get(documentId).add(nodeId);
 
-        // Calcular o quorum necessário
         float majority = (float) Math.ceil(activeNodes.size() / 2.0);
 
         ackMap.computeIfAbsent(documentId, k -> new HashSet<>()).add(nodeId);
@@ -166,41 +161,42 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         }
     }
 
-
-    //Sprint 4
-
-    // FALTA POR ISTO A FUNCIONAR
     private synchronized void trackAckRequests(String documentId) {
-        ackMap.putIfAbsent(documentId, new HashSet<>(activeNodes)); // Aguardar ACK de todos os nós
-        ackCountMap.put(documentId, 0); // Inicializa contador de ACKs como 0
+        ackMap.putIfAbsent(documentId, new HashSet<>(activeNodes));
+        ackCountMap.put(documentId, 0);
     }
 
-    //Método para rastrear pedidos de ACK
+    //Método para detetar falhas
     private synchronized void checkForFailedNodes() throws RemoteException {
         for (Map.Entry<String, Set<String>> entry : ackMap.entrySet()) {
-            for (String nodeId : new HashSet<>(activeNodes)) {
-                // Incrementar falhas consecutivas para nós que não responderam
-                failedAckCounts.put(nodeId, failedAckCounts.getOrDefault(nodeId, 0) + 1);
+            String documentId = entry.getKey();
+            Set<String> respondingNodes = entry.getValue();
 
-                // Se ultrapassar o limite de falhas, remover nó
-                if (failedAckCounts.get(nodeId) >= 2) {
-                    System.out.println(nodeId + " Falha no envio de ACK's. O nó será removido");
-                    removeNode(nodeId);
+            for (String nodeId : new HashSet<>(activeNodes)) {
+                if (respondingNodes.contains(nodeId)) {
+                    failedAckCounts.put(nodeId, 0);
+                } else {
+
+                    failedAckCounts.put(nodeId, failedAckCounts.getOrDefault(nodeId, 0) + 1);
+
+                    if (failedAckCounts.get(nodeId) >= 2) {
+                        System.out.println(nodeId + " Falha no envio de ACK's. O nó será removido");
+                        removeNode(nodeId);
+                        failedAckCounts.remove(nodeId); // limpa o nó removido
+                        System.out.println("NÓS ATIVOS : " + activeNodes + "\n");
+                    }
                 }
             }
         }
     }
 
-
     private void startAckMonitor() {
         new Thread(() -> {
             while (true) {
                 try {
-                    Thread.sleep(5000); // Verificar a cada 5 segundos
+                    Thread.sleep(5000);
                     checkForFailedNodes();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (RemoteException e) {
+                } catch (InterruptedException | RemoteException e) {
                     e.printStackTrace();
                 }
             }
