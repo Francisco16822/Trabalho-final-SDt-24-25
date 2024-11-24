@@ -12,19 +12,11 @@ public class Main {
                 Registry registry = LocateRegistry.createRegistry(1099);
                 registry.rebind("Leader", leader);
 
-                System.out.println("Líder iniciado e registado no RMI.");
                 new SendTransmitter("Leader", leader, messageList).start();
 
 
-                leader.updateDocument("doc1", "Conteúdo do documento 1");
-                leader.updateDocument("doc2", "Conteúdo do documento 2");
-
-                // Inicializa um novo nó
-                Node newNode = new Node("Node1", messageList);
-                newNode.start();
-
-
-
+                //leader.updateDocument("doc1", "Conteúdo do documento 1");
+                //leader.updateDocument("doc2", "Conteúdo do documento 2");
 
 
 

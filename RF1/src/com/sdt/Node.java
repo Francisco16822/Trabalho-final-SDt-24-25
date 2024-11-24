@@ -71,7 +71,7 @@ public class Node {
 
 
     // Método principal para inicializar o nó
-    public static void main(String[] args) {
+   /* public static void main(String[] args) {
 
         Node node = new Node("Node1", new MessageList());
         node.start();
@@ -83,5 +83,5 @@ public class Node {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-    }
+    }*/
 }

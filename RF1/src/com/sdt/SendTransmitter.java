@@ -15,6 +15,7 @@ public class SendTransmitter extends Thread {
     private String nodeId;
     private Leader_RMI_Handler leader;
     private MessageList messageList;
+    private boolean isLeader;
 
 
     private List<String> tempUpdates = new ArrayList<>();
@@ -24,6 +25,7 @@ public class SendTransmitter extends Thread {
         this.nodeId = nodeId;
         this.leader = leader;
         this.messageList = messageList;
+        this.isLeader = "Leader".equals(nodeId);
         try {
 
             this.socket = new MulticastSocket();
@@ -38,7 +40,7 @@ public class SendTransmitter extends Thread {
         long timestamp = System.currentTimeMillis();
         String updateMessage = "SYNC " + documentId + ":" + content + ":" + timestamp;
         messageList.addMessage(updateMessage, true);  // Adiciona como pendente
-        System.out.println(nodeId + " enviou atualização para o documento " + documentId);
+        System.out.println(nodeId + " enviou atualização para o documento: " + documentId);
         sendMulticastMessage(updateMessage);
     }
 
@@ -59,6 +61,8 @@ public class SendTransmitter extends Thread {
 
     @Override
     public void run() {
+        if (!isLeader) return;
+
         while (true) {
             try {
                 sendHeartbeat();
@@ -144,7 +148,8 @@ public class SendTransmitter extends Thread {
     private void sendMulticastMessageToNode(String nodeId, String message) throws RemoteException {
         try {
             byte[] plainMessage = message.getBytes();
-            DatagramPacket packet = new DatagramPacket(plainMessage, plainMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);            socket.send(packet);
+            DatagramPacket packet = new DatagramPacket(plainMessage, plainMessage.length, InetAddress.getByName(MULTICAST_ADDRESS), PORT);
+            socket.send(packet);
             System.out.println(nodeId + " recebeu a notificação de novo nó: " + message);
         } catch (Exception e) {
             e.printStackTrace();
