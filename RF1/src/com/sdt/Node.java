@@ -15,26 +15,18 @@ public class Node {
     public Node(String nodeId, MessageList messageList) {
         this.nodeId = nodeId;
         this.messageList = messageList;
-        //o start deve ser chamado aqui
     }
 
     public void start() {
         try {
-
             leader = (LeaderInterface) Naming.lookup("//localhost/Leader");
-
-
-            leader.addNode(nodeId);
-
-
+            leader.addNode(nodeId); // Adiciona o nó ao líder
             synchronizeWithLeader();
-
 
             receiver = new MessageReceiver(nodeId, messageList);
             receiver.start();
             sendTransmitter = new SendTransmitter(nodeId, new Leader_RMI_Handler(nodeId, messageList), messageList);
             sendTransmitter.start();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -42,31 +34,23 @@ public class Node {
 
     private void synchronizeWithLeader() {
         try {
-
             Map<String, String> documentVersions = leader.getDocumentVersions();
             List<String> pendingUpdates = leader.getPendingUpdates();
             System.out.println("A sincronizar documentos do líder...");
 
-
             for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
                 String documentId = entry.getKey();
                 String content = entry.getValue();
-
-
                 System.out.println("Documento Sincronizado: " + documentId + " -> " + content);
-
-
                 messageList.addMessage("SYNC " + documentId + ":" + content + ":" + System.currentTimeMillis());
             }
 
-
             for (String update : pendingUpdates) {
-                System.out.println("Aplicação de atualização pendente: " + update);
+                System.out.println("Aplicando update pendente: " + update);
                 messageList.addMessage(update);
             }
-        } catch (Exception e) {
+        } catch (RemoteException e) {
             e.printStackTrace();
         }
     }
-
 }

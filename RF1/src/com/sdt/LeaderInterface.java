@@ -6,17 +6,11 @@ import java.util.List;
 import java.util.Map;
 
 public interface LeaderInterface extends Remote {
-
-
-    void updateDocument(String documentId, String content) throws RemoteException;
-    void receiveAck(String documentId, String nodeId) throws RemoteException;
-
-
-    List<String> getPendingUpdates() throws RemoteException;
-    List<String> getDocumentList() throws RemoteException;
-    Map<String, String> getDocumentVersions() throws RemoteException;
-
-
     void addNode(String nodeId) throws RemoteException;
-    //void handleNodeExit(String nodeId) throws RemoteException;
+    void updateDocument(String documentId, String content) throws RemoteException;
+    Map<String, String> getDocumentVersions() throws RemoteException;  // Método para obter versões de documentos
+    List<String> getPendingUpdates() throws RemoteException;            // Método para obter atualizações pendentes
+    void receiveAck(String documentId, String nodeId) throws RemoteException;  // Para o recebimento de ACKs
+
+    void UpdateAckTime(String nodeId) throws RemoteException;
 }
