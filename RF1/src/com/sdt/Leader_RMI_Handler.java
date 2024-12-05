@@ -11,8 +11,10 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private Map<String, Set<String>> ackMap;
     private MessageList messageList;
     private List<String> pendingUpdates;
-    private List<String> activeNodes;
+    protected List<String> activeNodes;
     private Map<String, Long> lastAckTimestampMap;
+
+    protected long activeAcksCount;
 
     private static final long ACK_TIMEOUT = 15000; // 15 segundos
     private static final long ACK_CHECK_INTERVAL = 5000; // Verificação de falhas a cada 5 segundos
@@ -31,69 +33,67 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         startAckMonitor();
     }
 
-    // Implementação do método para retornar versões dos documentos
     @Override
     public Map<String, String> getDocumentVersions() throws RemoteException {
         return documentVersions;
     }
 
-    // Implementação do método para retornar documentos pendentes
     @Override
     public List<String> getPendingUpdates() throws RemoteException {
         return pendingUpdates;
     }
 
+    @Override
+    public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
+        updateAckTime(nodeId);
 
-    public void UpdateAckTime(String nodeid) throws RemoteException{
+        // Adiciona o ACK no mapa correspondente
+        ackMap.putIfAbsent(documentId, new HashSet<>());
+        ackMap.get(documentId).add(nodeId);
+
+        Set<String> acks = ackMap.get(documentId);
+        long activeAcksCount = acks.stream().filter(activeNodes::contains).count();
+
+        int majority = (int) Math.ceil(activeNodes.size() / 2.0);
+
+        // Enviar commit se a maioria for atingida
+        if (activeAcksCount >= majority) {
+            System.out.println("Maioria atingida para o documento " + documentId);
+            transmitter.sendCommit(documentId);
+            ackMap.remove(documentId);
+            pendingUpdates.clear();
+        }
+    }
+
+
+
+
+
+    @Override
+    public void updateAckTime(String nodeId) throws RemoteException {
         lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
     }
 
-    // Método que processa o recebimento de ACK
-    @Override
-    public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
-        UpdateAckTime(nodeId);
-        // Adiciona o ACK ao mapa de ACKs
-        Set<String> acks = ackMap.get(documentId);
-        if (acks == null) {
-            acks = new HashSet<>();
-            ackMap.put(documentId, acks);
-        }
-        acks.add(nodeId); // Adiciona o ACK para o nó que enviou a confirmação
-
-        float majority = (float) Math.ceil(activeNodes.size() / 2.0);
-        if (ackMap.get(documentId).size() >= majority) {
-            transmitter.sendCommit(documentId);
-            ackMap.remove(documentId);
-            if (acks.size() == activeNodes.size()) {
-                // Todos os ACKs foram recebidos, remove da lista de pendências
-                pendingUpdates.remove(documentId);
-                System.out.println("Todos os ACKs recebidos para o documento " + documentId);
-            }
-        }
-    }
-
-    // Método que verifica se algum nó falhou devido ao timeout
     private synchronized void checkForFailedNodes() throws RemoteException {
         long currentTime = System.currentTimeMillis();
-
         for (String nodeId : new HashSet<>(activeNodes)) {
             Long lastAckTime = lastAckTimestampMap.get(nodeId);
-            if (currentTime - lastAckTime > ACK_TIMEOUT) {
+            if (lastAckTime != null && currentTime - lastAckTime > ACK_TIMEOUT) {
                 System.out.println("Falha detectada no nó " + nodeId + ", removendo...");
                 removeNode(nodeId);
-                lastAckTimestampMap.remove(nodeId); // Remove o nó falho do mapa de timestamps
+                lastAckTimestampMap.remove(nodeId);
             }
         }
     }
 
-    // Método que inicia o monitoramento dos ACKs
     private void startAckMonitor() {
         new Thread(() -> {
             while (true) {
                 try {
-                    if (!pendingUpdates.isEmpty()){
-                        Thread.sleep(ACK_CHECK_INTERVAL);
-                        checkForFailedNodes(); // Verificar se algum nó falhou
+                    Thread.sleep(ACK_CHECK_INTERVAL);
+                    if (!pendingUpdates.isEmpty()) {
+                        System.out.println("Verificando pendências: " + pendingUpdates);
+                        checkForFailedNodes();
                     }
                 } catch (InterruptedException | RemoteException e) {
                     e.printStackTrace();
@@ -107,7 +107,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     public synchronized void addNode(String nodeId) throws RemoteException {
         if (!activeNodes.contains(nodeId)) {
             activeNodes.add(nodeId);
-            lastAckTimestampMap.put(nodeId, System.currentTimeMillis()); // Inicializa o timestamp do nó
+            lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
             System.out.println("Nó " + nodeId + " adicionado aos nós ativos.");
         }
     }
@@ -120,7 +120,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         transmitter.sendDocumentUpdate(documentId, content);
     }
 
-    // Método que remove um nó da lista de nós ativos
     private void removeNode(String nodeId) throws RemoteException {
         activeNodes.remove(nodeId);
         lastAckTimestampMap.remove(nodeId);

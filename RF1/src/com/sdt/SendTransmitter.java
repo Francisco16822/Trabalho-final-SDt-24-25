@@ -41,15 +41,16 @@ public class SendTransmitter extends Thread {
     }
 
     public void sendCommit(String documentId) {
-        String cleanDocumentId = documentId.replace("HEARTBEAT SYNC", "").trim();
-        String commitMessage = " COMMIT " + cleanDocumentId;
+        String commitMessage = "HEARTBEAT COMMIT " + documentId;
 
-        if (!committedDocuments.contains(cleanDocumentId)) {
-            committedDocuments.add(cleanDocumentId);
-            messageList.addMessage(commitMessage);
-            System.out.println("Documento " + cleanDocumentId + " tornado permanente.");
+        if (!committedDocuments.contains(documentId)) {
+            committedDocuments.add(documentId);
+            sendMulticastMessage(commitMessage);
+            System.out.println("COMMIT enviado para " + documentId);
+            committedDocuments.remove(documentId);
         }
     }
+
 
     @Override
     public void run() {

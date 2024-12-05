@@ -33,6 +33,19 @@ public class MessageReceiver extends Thread {
         }
     }
 
+    private void respondToHeartbeat() {
+        try {
+            Registry registry = LocateRegistry.getRegistry("localhost");
+            LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
+            leader.updateAckTime(nodeId);
+            System.out.println(nodeId + " respondeu ao heartbeat do líder.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Erro ao responder ao heartbeat do líder.");
+        }
+    }
+
+
     @Override
     public void run() {
         try (MulticastSocket socket = new MulticastSocket(MULTICAST_PORT)) {
@@ -45,6 +58,7 @@ public class MessageReceiver extends Thread {
                 socket.receive(packet);
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
                 System.out.println(nodeId + " recebeu: " + receivedMessage);
+                respondToHeartbeat();
 
                 if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
                     String[] parts = receivedMessage.split(":");

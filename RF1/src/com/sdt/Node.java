@@ -37,6 +37,7 @@ public class Node {
             Map<String, String> documentVersions = leader.getDocumentVersions();
             List<String> pendingUpdates = leader.getPendingUpdates();
             System.out.println("A sincronizar documentos do líder...");
+            leader.updateAckTime(nodeId);
 
             for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
                 String documentId = entry.getKey();

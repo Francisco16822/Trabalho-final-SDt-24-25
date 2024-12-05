@@ -12,5 +12,5 @@ public interface LeaderInterface extends Remote {
     List<String> getPendingUpdates() throws RemoteException;            // Método para obter atualizações pendentes
     void receiveAck(String documentId, String nodeId) throws RemoteException;  // Para o recebimento de ACKs
 
-    void UpdateAckTime(String nodeId) throws RemoteException;
+    void updateAckTime(String nodeId) throws RemoteException;
 }
