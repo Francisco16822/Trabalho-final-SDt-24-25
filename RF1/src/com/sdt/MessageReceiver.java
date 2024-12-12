@@ -14,7 +14,8 @@ public class MessageReceiver extends Thread {
     private static final String MULTICAST_ADDRESS = "224.0.1.0";
     private static final int MULTICAST_PORT = 4446;
 
-    private List<String> tempUpdates = new ArrayList<>();
+    private List<String> tempUpdates = new ArrayList<>(); // Lista temporária para SYNC
+    private List<String> definitiveUpdates = new ArrayList<>(); // Lista definitiva após COMMIT
 
     public MessageReceiver(String nodeId, MessageList messageList) {
         this.nodeId = nodeId;
@@ -45,7 +46,6 @@ public class MessageReceiver extends Thread {
         }
     }
 
-
     @Override
     public void run() {
         try (MulticastSocket socket = new MulticastSocket(MULTICAST_PORT)) {
@@ -61,15 +61,9 @@ public class MessageReceiver extends Thread {
                 respondToHeartbeat();
 
                 if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
-                    String[] parts = receivedMessage.split(":");
-                    String documentId = parts[0];
-                    String content = parts[1];
-                    tempUpdates.add(receivedMessage);
-                    System.out.println(nodeId + " recebeu atualização SYNC.");
-                    sendAck(documentId); // Envia ACK via RMI
+                    handleSyncMessage(receivedMessage);
                 } else if (receivedMessage.startsWith("HEARTBEAT COMMIT")) {
-                    applyTempUpdates();
-                    System.out.println(nodeId + " aplicou atualizações COMMIT.");
+                    handleCommitMessage(receivedMessage);
                 }
             }
         } catch (Exception e) {
@@ -77,12 +71,29 @@ public class MessageReceiver extends Thread {
         }
     }
 
-    private void applyTempUpdates() {
+    private void handleSyncMessage(String receivedMessage) {
+        String[] parts = receivedMessage.split(":");
+        String documentId = parts[0];
+        String content = parts[1];
+        tempUpdates.add(documentId + ":" + content);
+        System.out.println(nodeId + " recebeu atualização SYNC e adicionou à lista temporária.");
+        sendAck(documentId);
+    }
 
-        for (String update : tempUpdates) {
-            messageList.addMessage(update); // Adiciona como pendente (SYNC)
-            //System.out.println(nodeId + " adicionou atualização pendente: " + update);
-        }
-        tempUpdates.clear();
+    private void handleCommitMessage(String receivedMessage) {
+        String[] parts = receivedMessage.split(" ");
+        String documentId = parts[2];
+        applyCommit(documentId);
+        System.out.println(nodeId + " aplicou atualização COMMIT para o documento: " + documentId);
+    }
+
+    private void applyCommit(String documentId) {
+        tempUpdates.removeIf(update -> {
+            if (update.startsWith(documentId + ":")) {
+                definitiveUpdates.add(update);
+                return true; // Remove da lista temporária
+            }
+            return false;
+        });
     }
 }
