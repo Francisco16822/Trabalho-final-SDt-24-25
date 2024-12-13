@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInterface {
     private final String nodeId;
     private final SendTransmitter transmitter;
-    private final Map<String, String> documentVersions; // Armazena os documentos e suas versões
+    private final Map<String, String> documentVersions;
     private final Map<String, Set<String>> ackMap; // Thread-safe
     private final MessageList messageList;
     private final List<String> pendingUpdates; // Thread-safe
@@ -16,7 +16,8 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private final ConcurrentHashMap<String, Long> lastAckTimestampMap; // Thread-safe
 
     private static final long ACK_TIMEOUT = 15000; // 15 segundos
-    private static final long ACK_CHECK_INTERVAL = 5000; // Verificação de falhas a cada 5 segundos
+    private static final long ACK_CHECK_INTERVAL = 5000;
+
 
     public Leader_RMI_Handler(String nodeId, MessageList messageList) throws RemoteException {
         super();
@@ -29,7 +30,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         this.activeNodes = new CopyOnWriteArrayList<>();
         this.lastAckTimestampMap = new ConcurrentHashMap<>();
 
-        startAckMonitor();
+        startMonitor();
     }
 
     @Override
@@ -39,15 +40,12 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
     @Override
     public List<String> getPendingUpdates() throws RemoteException {
-        // CopyOnWriteArrayList permite leitura segura sem sincronização adicional.
         return new ArrayList<>(pendingUpdates);
     }
 
     @Override
     public synchronized void receiveAck(String documentId, String nodeId) throws RemoteException {
         updateAckTime(nodeId);
-
-        // Adiciona o ACK no mapa correspondente
         ackMap.computeIfAbsent(documentId, k -> ConcurrentHashMap.newKeySet());
         ackMap.get(documentId).add(nodeId);
 
@@ -56,12 +54,11 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
 
         int majority = (int) Math.ceil(activeNodes.size() / 2.0);
 
-        // Enviar commit se a maioria for atingida
         if (activeAcksCount >= majority) {
             System.out.println("Maioria atingida para o documento " + documentId);
             transmitter.sendCommit(documentId);
             ackMap.remove(documentId);
-            pendingUpdates.remove(documentId); // Remover pendência
+            pendingUpdates.clear();
         }
     }
 
@@ -82,11 +79,12 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         }
     }
 
-    private void startAckMonitor() {
+    private void startMonitor() {
         new Thread(() -> {
             while (true) {
                 try {
                     Thread.sleep(ACK_CHECK_INTERVAL);
+                    resendPendingUpdates();
                     if (!pendingUpdates.isEmpty()) {
                         System.out.println("Verificando pendências: " + pendingUpdates);
                         checkForFailedNodes();
@@ -98,12 +96,27 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         }).start();
     }
 
+    // Método para reenviar pendências
+    private synchronized void resendPendingUpdates() {
+        for (String documentId : new ArrayList<>(pendingUpdates)) {
+            String content = documentVersions.get(documentId);
+            if (content != null) {
+                System.out.println("Reenviando atualização pendente: " + documentId);
+                transmitter.sendDocumentUpdate(documentId, content);
+            }
+        }
+    }
+
     @Override
     public synchronized void addNode(String nodeId) throws RemoteException {
         if (!activeNodes.contains(nodeId)) {
             activeNodes.add(nodeId);
             lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
             System.out.println("Nó " + nodeId + " adicionado aos nós ativos.");
+
+            for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
+                transmitter.sendDocumentUpdate(entry.getKey(), entry.getValue());
+            }
         }
     }
 

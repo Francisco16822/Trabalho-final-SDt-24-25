@@ -39,7 +39,6 @@ public class MessageReceiver extends Thread {
             Registry registry = LocateRegistry.getRegistry("localhost");
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
             leader.updateAckTime(nodeId);
-            System.out.println(nodeId + " respondeu ao heartbeat do líder.");
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Erro ao responder ao heartbeat do líder.");
@@ -58,6 +57,7 @@ public class MessageReceiver extends Thread {
                 socket.receive(packet);
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
                 System.out.println(nodeId + " recebeu: " + receivedMessage);
+                System.out.println(definitiveUpdates);
                 respondToHeartbeat();
 
                 if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
@@ -83,11 +83,6 @@ public class MessageReceiver extends Thread {
     private void handleCommitMessage(String receivedMessage) {
         String[] parts = receivedMessage.split(" ");
         String documentId = parts[2];
-        applyCommit(documentId);
-        System.out.println(nodeId + " aplicou atualização COMMIT para o documento: " + documentId);
-    }
-
-    private void applyCommit(String documentId) {
         tempUpdates.removeIf(update -> {
             if (update.startsWith(documentId + ":")) {
                 definitiveUpdates.add(update);
@@ -95,5 +90,6 @@ public class MessageReceiver extends Thread {
             }
             return false;
         });
+        System.out.println(nodeId + " aplicou atualização COMMIT para o documento: " + documentId);
     }
 }
