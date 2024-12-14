@@ -13,9 +13,8 @@ public class Node {
     private SendTransmitter sendTransmitter;
     private LeaderInterface leader;
     private boolean isLeader = false; // Indica se este nó é o líder
-
-    private static final long LEADER_TIMEOUT = 15000; // Timeout para considerar o líder falho
-    private long lastHeartbeatTime = System.currentTimeMillis(); // Tempo do último heartbeat recebido
+    private static final long LEADER_TIMEOUT = 20000; // Timeout para considerar o líder falho
+    private CopyOnWriteArrayList<String> activeNodes = new CopyOnWriteArrayList<>(); // Lista de nós ativos
 
     public Node(String nodeId, MessageList messageList) {
         this.nodeId = nodeId;
@@ -24,18 +23,14 @@ public class Node {
 
     public void start() {
         try {
-            // Conecta ao líder existente
+            // Tentar se conectar ao líder
             leader = (LeaderInterface) Naming.lookup("//localhost/Leader");
-            leader.addNode(nodeId);
+            // Caso não haja líder, ou se o líder falhar, entraremos em processo de eleição
             synchronizeWithLeader();
-
-            // Inicializa receptor e transmissor
             receiver = new MessageReceiver(nodeId, messageList);
             receiver.start();
             sendTransmitter = new SendTransmitter(nodeId, new Leader_RMI_Handler(nodeId, messageList), messageList);
             sendTransmitter.start();
-
-            // Inicia monitor de falha do líder
             startLeaderMonitor();
         } catch (Exception e) {
             System.out.println("Falha ao conectar ao líder. Iniciando eleição...");
@@ -43,28 +38,35 @@ public class Node {
         }
     }
 
+    // Método para monitorar o líder e verificar se ele está ativo
     private void startLeaderMonitor() {
         new Thread(() -> {
             while (true) {
                 try {
-                    Thread.sleep(5000); // Verifica a cada 5 segundos
-                    if (System.currentTimeMillis() - lastHeartbeatTime > LEADER_TIMEOUT) {
-                        System.out.println("Líder inativo. Iniciando eleição...");
-                        startLeaderElection();
+                    Thread.sleep(5000);
+                    if (leader != null) {
+                        long lastHeartbeatTime = leader.updateHeartbeatTime(nodeId);
+                        if (System.currentTimeMillis() - lastHeartbeatTime > LEADER_TIMEOUT) {
+                            System.out.println("Líder inativo. Iniciando eleição...");
+                            startLeaderElection();  // Inicia uma nova eleição
+                        }
                     }
-                } catch (InterruptedException e) {
+                } catch (InterruptedException | RemoteException e) {
                     e.printStackTrace();
                 }
             }
         }).start();
     }
 
+    // Método para iniciar a eleição de líder
     private void startLeaderElection() {
         try {
-            // Eleição pelo maior nodeId
+            // O nó que detectar a ausência de líder inicia uma eleição
             System.out.println(nodeId + " iniciando eleição...");
-            isLeader = true; // Assume temporariamente que será o líder
-            for (String otherNode : ActiveNodes()) {
+            isLeader = true; // Inicialmente, consideramos que o nó pode ser o líder
+
+            // Enviar uma mensagem para todos os outros nós, dizendo que está iniciando uma eleição
+            for (String otherNode : activeNodes) {
                 if (otherNode.compareTo(nodeId) > 0) {
                     isLeader = false;
                     break;
@@ -72,12 +74,19 @@ public class Node {
             }
 
             if (isLeader) {
-                System.out.println(nodeId + " se tornou o novo líder!");
+                // O nó com o maior ID será eleito líder
+                System.out.println(nodeId + " é o novo líder!");
                 leader = new Leader_RMI_Handler(nodeId, messageList);
-                for (String otherNode : ActiveNodes()) {
-                    leader.addNode(otherNode);
+                // Registra o líder no RMI Registry
+                Naming.rebind("//localhost/Leader", leader);
+                System.out.println(nodeId + " registrado como líder.");
+
+                // Realiza o processo de inicialização do líder, enviando os documentos, etc.
+                for (String otherNode : activeNodes) {
+                    leader.addNode(otherNode);  // Adiciona outros nós ao líder
                 }
             } else {
+                // Caso contrário, o nó aguarda o novo líder
                 System.out.println(nodeId + " aguardando novo líder.");
                 leader = (LeaderInterface) Naming.lookup("//localhost/Leader");
             }
@@ -86,32 +95,42 @@ public class Node {
         }
     }
 
-    private CopyOnWriteArrayList<String> ActiveNodes() {
-        // Simula uma lista de nós ativos (em produção, isso seria obtido do RMI Registry)
+    // Método para obter os nós ativos
+    private CopyOnWriteArrayList<String> getActiveNodes() {
         try {
-            return leader.getActiveNodes();
+            if (leader != null) {
+                return leader.getActiveNodes();
+            } else {
+                throw new RuntimeException("Líder não disponível.");
+            }
         } catch (RemoteException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
+            return new CopyOnWriteArrayList<>();
         }
     }
 
+    // Método para sincronizar documentos com o líder
     private void synchronizeWithLeader() {
         try {
-            Map<String, String> documentVersions = leader.getDocumentVersions();
-            List<String> pendingUpdates = leader.getPendingUpdates();
-            System.out.println("Sincronizando documentos do líder...");
-            leader.updateAckTime(nodeId);
+            if (leader != null) {
+                Map<String, String> documentVersions = leader.getDocumentVersions();
+                List<String> pendingUpdates = leader.getPendingUpdates();
+                System.out.println("Sincronizando documentos do líder...");
+                leader.updateAckTime(nodeId); // Atualiza o tempo de resposta do nó
 
-            for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
-                String documentId = entry.getKey();
-                String content = entry.getValue();
-                System.out.println("Documento sincronizado: " + documentId + " -> " + content);
-                messageList.addMessage("SYNC " + documentId + ":" + content + ":" + System.currentTimeMillis());
-            }
+                // Sincroniza os documentos com o líder
+                for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
+                    String documentId = entry.getKey();
+                    String content = entry.getValue();
+                    System.out.println("Documento sincronizado: " + documentId + " -> " + content);
+                    messageList.addMessage("SYNC " + documentId + ":" + content + ":" + System.currentTimeMillis());
+                }
 
-            for (String update : pendingUpdates) {
-                System.out.println("Aplicando update pendente: " + update);
-                messageList.addMessage(update);
+                // Aplica as atualizações pendentes
+                for (String update : pendingUpdates) {
+                    System.out.println("Aplicando update pendente: " + update);
+                    messageList.addMessage(update);
+                }
             }
         } catch (RemoteException e) {
             e.printStackTrace();

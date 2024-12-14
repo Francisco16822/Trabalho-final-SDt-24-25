@@ -14,11 +14,11 @@ public class SendTransmitter extends Thread {
     private Leader_RMI_Handler leader;
     private MessageList messageList;
     private boolean isLeader;
-
     private Set<String> committedDocuments = new HashSet<>();
     private List<String> tempUpdates = new ArrayList<>();
     private MulticastSocket socket;
     private List<String> pendingUpdates;
+    private long lastHeartbeatTime = System.currentTimeMillis();
 
     public SendTransmitter(String nodeId, Leader_RMI_Handler leader, MessageList messageList) {
         this.nodeId = nodeId;
@@ -51,20 +51,19 @@ public class SendTransmitter extends Thread {
         }
     }
 
-
-    @Override
-    public void run() {
-        if (!isLeader) return;
-
-        while (true) {
-            try {
-                sendHeartbeat();
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+    public void startHeartbeats() {
+        new Thread(() -> {
+            while (isLeader) {
+                try {
+                    sendHeartbeat(); // O líder envia o heartbeat
+                    Thread.sleep(5000); // Envia a cada 5 segundos
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        }).start();
     }
+
 
     private void sendHeartbeat() {
         List<String> allMessages = messageList.createSendStructure();
