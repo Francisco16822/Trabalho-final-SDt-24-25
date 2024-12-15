@@ -12,7 +12,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private final Map<String, Set<String>> ackMap; // Thread-safe
     private final MessageList messageList;
     private final List<String> pendingUpdates; // Thread-safe
-    protected final CopyOnWriteArrayList<String> activeNodes; // Thread-safe
+    public final CopyOnWriteArrayList<String> activeNodes; // Thread-safe
     private final ConcurrentHashMap<String, Long> lastAckTimestampMap; // Thread-safe
 
     private static final long ACK_TIMEOUT = 15000; // 15 segundos
@@ -36,6 +36,10 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     @Override
     public synchronized Map<String, String> getDocumentVersions() throws RemoteException {
         return new HashMap<>(documentVersions);
+    }
+    @Override
+    public CopyOnWriteArrayList<String> getActiveNodes() throws RemoteException{
+        return activeNodes;
     }
 
     @Override
@@ -127,6 +131,14 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         pendingUpdates.add(documentId);
         transmitter.sendDocumentUpdate(documentId, content);
     }
+
+    @Override
+    public synchronized void setNewLeader(String nodeId) throws RemoteException {
+        System.out.println("Novo líder definido: " + nodeId);
+        activeNodes.clear();
+        activeNodes.add(nodeId); // Atualiza a lista de nós ativos
+    }
+
 
     private synchronized void removeNode(String nodeId) throws RemoteException {
         activeNodes.remove(nodeId);
