@@ -17,5 +17,4 @@ public interface LeaderInterface extends Remote {
     void updateAckTime(String nodeId) throws RemoteException;
     CopyOnWriteArrayList<String> getActiveNodes() throws RemoteException;
     public long updateHeartbeatTime(String nodeId) throws RemoteException;
-
 }
