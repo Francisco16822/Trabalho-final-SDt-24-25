@@ -57,6 +57,7 @@ public class MessageReceiver extends Thread {
                 socket.receive(packet);
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
                 System.out.println(nodeId + " recebeu: " + receivedMessage);
+                System.out.println(definitiveUpdates);
                 respondToHeartbeat();
 
                 if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
