@@ -14,8 +14,11 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private final List<String> pendingUpdates; // Thread-safe
     public final CopyOnWriteArrayList<String> activeNodes; // Thread-safe
     private final ConcurrentHashMap<String, Long> lastAckTimestampMap; // Thread-safe
+
     private static final long ACK_TIMEOUT = 15000; // 15 segundos
     private static final long ACK_CHECK_INTERVAL = 5000;
+
+
     public Leader_RMI_Handler(String nodeId, MessageList messageList) throws RemoteException {
         super();
         this.nodeId = nodeId;
@@ -34,9 +37,8 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     public synchronized Map<String, String> getDocumentVersions() throws RemoteException {
         return new HashMap<>(documentVersions);
     }
-
     @Override
-    public CopyOnWriteArrayList<String> getActiveNodes() throws RemoteException {
+    public CopyOnWriteArrayList<String> getActiveNodes() throws RemoteException{
         return activeNodes;
     }
 
@@ -54,9 +56,9 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         Set<String> acks = ackMap.get(documentId);
         long activeAcksCount = acks.stream().filter(activeNodes::contains).count();
 
-        float majority = (float) (activeNodes.size() / 2.0);
+        int majority = (int) Math.ceil(activeNodes.size() / 2.0);
 
-        if (activeAcksCount >= majority && !pendingUpdates.isEmpty()) {
+        if (activeAcksCount >= majority) {
             System.out.println("Maioria atingida para o documento " + documentId);
             transmitter.sendCommit(documentId);
             ackMap.remove(documentId);
@@ -69,14 +71,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
     }
 
-    @Override
-    public synchronized long updateHeartbeatTime(String nodeId) throws RemoteException {
-        long currentTime = System.currentTimeMillis();
-        lastAckTimestampMap.put(nodeId, currentTime);
-        return currentTime;
-    }
-
-
     private synchronized void checkForFailedNodes() throws RemoteException {
         long currentTime = System.currentTimeMillis();
         for (String nodeId : new HashSet<>(activeNodes)) {
@@ -88,7 +82,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
             }
         }
     }
-
 
     private void startMonitor() {
         new Thread(() -> {
@@ -107,6 +100,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         }).start();
     }
 
+    // Método para reenviar pendências
     private synchronized void resendPendingUpdates() {
         for (String documentId : new ArrayList<>(pendingUpdates)) {
             String content = documentVersions.get(documentId);
@@ -144,6 +138,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         activeNodes.clear();
         activeNodes.add(nodeId); // Atualiza a lista de nós ativos
     }
+
 
     private synchronized void removeNode(String nodeId) throws RemoteException {
         activeNodes.remove(nodeId);
