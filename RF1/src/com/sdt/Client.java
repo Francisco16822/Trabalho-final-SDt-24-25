@@ -11,7 +11,7 @@ public class Client {
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
 
             String documentId = "[ Doc1 ]";
-            String content = " Versão Inicial ";
+            String content = " Versão Inicial";
             String requestId = UUID.randomUUID().toString();
 
             System.out.println("Enviando documento ao líder: " + documentId + " com Request ID: " + requestId);
