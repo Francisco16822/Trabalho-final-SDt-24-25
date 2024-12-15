@@ -3,10 +3,9 @@ package com.sdt;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.rmi.RemoteException;
+import java.util.*;
+import java.io.*;
 
 public class SendTransmitter extends Thread {
     private static final String MULTICAST_ADDRESS = "224.0.1.0";
@@ -54,10 +53,10 @@ public class SendTransmitter extends Thread {
 
     public void startHeartbeats() {
         new Thread(() -> {
-            while (true) {
+            while (isLeader) {
                 try {
-                    sendHeartbeat();
-                    Thread.sleep(5000);
+                    sendHeartbeat(); // O líder envia o heartbeat
+                    Thread.sleep(5000); // Envia a cada 5 segundos
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -68,8 +67,8 @@ public class SendTransmitter extends Thread {
 
     private void sendHeartbeat() {
         List<String> allMessages = messageList.createSendStructure();
-        String heartbeatMessage = "HEARTBEAT" + String.join(";", allMessages);
-        sendMulticastMessage(heartbeatMessage); // Envia a mensagem para todos os nós
+        String consolidatedHeartbeat = String.join(";", allMessages);
+        sendMulticastMessage("HEARTBEAT" + consolidatedHeartbeat);
     }
 
     private void sendMulticastMessage(String message) {

@@ -16,7 +16,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     private final ConcurrentHashMap<String, Long> lastAckTimestampMap; // Thread-safe
     private static final long ACK_TIMEOUT = 15000; // 15 segundos
     private static final long ACK_CHECK_INTERVAL = 5000;
-    private Map<String, Integer> failedAckCounts = new HashMap<>();
     public Leader_RMI_Handler(String nodeId, MessageList messageList) throws RemoteException {
         super();
         this.nodeId = nodeId;
@@ -27,6 +26,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         this.pendingUpdates = new CopyOnWriteArrayList<>();
         this.activeNodes = new CopyOnWriteArrayList<>();
         this.lastAckTimestampMap = new ConcurrentHashMap<>();
+
         startMonitor();
     }
 
@@ -64,7 +64,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         }
     }
 
-
     @Override
     public synchronized void updateAckTime(String nodeId) throws RemoteException {
         lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
@@ -77,21 +76,6 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
         return currentTime;
     }
 
-    private void startMonitor() {
-        new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(ACK_CHECK_INTERVAL);  // Intervalo entre as verificações de falhas
-                    if (!pendingUpdates.isEmpty()) {
-                        resendPendingUpdates();  // Reenviar atualizações pendentes
-                    }
-                    checkForFailedNodes();  // Verificação de falhas
-                } catch (InterruptedException | RemoteException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
 
     private synchronized void checkForFailedNodes() throws RemoteException {
         long currentTime = System.currentTimeMillis();
@@ -106,11 +90,28 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
     }
 
 
+    private void startMonitor() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(ACK_CHECK_INTERVAL);
+                    resendPendingUpdates();
+                    if (!pendingUpdates.isEmpty()) {
+                        System.out.println("Verificando pendências: " + pendingUpdates);
+                        checkForFailedNodes();
+                    }
+                } catch (InterruptedException | RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
     private synchronized void resendPendingUpdates() {
         for (String documentId : new ArrayList<>(pendingUpdates)) {
             String content = documentVersions.get(documentId);
             if (content != null) {
-                System.out.println("Reenviar atualizações pendentes: " + documentId);
+                System.out.println("Reenviando atualização pendente: " + documentId);
                 transmitter.sendDocumentUpdate(documentId, content);
             }
         }
@@ -122,6 +123,7 @@ public class Leader_RMI_Handler extends UnicastRemoteObject implements LeaderInt
             activeNodes.add(nodeId);
             lastAckTimestampMap.put(nodeId, System.currentTimeMillis());
             System.out.println("Nó " + nodeId + " adicionado aos nós ativos.");
+
             for (Map.Entry<String, String> entry : documentVersions.entrySet()) {
                 transmitter.sendDocumentUpdate(entry.getKey(), entry.getValue());
             }

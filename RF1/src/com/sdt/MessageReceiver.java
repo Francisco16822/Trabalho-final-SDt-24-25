@@ -13,7 +13,7 @@ public class MessageReceiver extends Thread {
     private MessageList messageList;
     private static final String MULTICAST_ADDRESS = "224.0.1.0";
     private static final int MULTICAST_PORT = 4446;
-    private LeaderInterface leader;
+
     private List<String> tempUpdates = new ArrayList<>(); // Lista temporária para SYNC
     private List<String> definitiveUpdates = new ArrayList<>(); // Lista definitiva após COMMIT
 
@@ -24,7 +24,6 @@ public class MessageReceiver extends Thread {
 
     private void sendAck(String documentId) {
         try {
-            System.out.println(nodeId + " tentou enviar ACK");
             Registry registry = LocateRegistry.getRegistry("localhost");
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
             leader.receiveAck(documentId, nodeId);
@@ -39,12 +38,13 @@ public class MessageReceiver extends Thread {
         try {
             Registry registry = LocateRegistry.getRegistry("localhost");
             LeaderInterface leader = (LeaderInterface) registry.lookup("Leader");
-            leader.updateAckTime(nodeId); // Envia o tempo de ACK para o líder
+            leader.updateAckTime(nodeId);
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Erro ao responder ao heartbeat do líder.");
         }
     }
+
 
     @Override
     public void run() {
@@ -59,6 +59,7 @@ public class MessageReceiver extends Thread {
                 String receivedMessage = new String(packet.getData(), 0, packet.getLength());
                 System.out.println(nodeId + " recebeu: " + receivedMessage);
                 respondToHeartbeat();
+
                 if (receivedMessage.startsWith("HEARTBEAT SYNC")) {
                     handleSyncMessage(receivedMessage);
                 } else if (receivedMessage.startsWith("HEARTBEAT COMMIT")) {
@@ -70,16 +71,13 @@ public class MessageReceiver extends Thread {
         }
     }
 
-
-
     private void handleSyncMessage(String receivedMessage) {
-        System.out.println(receivedMessage);
-        String[] parts = receivedMessage.split(" ");
-        String documentId = parts[3];
-        System.out.println(nodeId + " recebeu mensagem de sincronização para o documento " + documentId);
+        String[] parts = receivedMessage.split(":");
+        String documentId = parts[0];
+        String content = parts[1];
+        tempUpdates.add(documentId + ":" + content);
         sendAck(documentId);
     }
-
 
     private void handleCommitMessage(String receivedMessage) {
         String[] parts = receivedMessage.split(" ");
