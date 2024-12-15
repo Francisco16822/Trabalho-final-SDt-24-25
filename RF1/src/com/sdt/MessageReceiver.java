@@ -45,6 +45,7 @@ public class MessageReceiver extends Thread {
         }
     }
 
+
     @Override
     public void run() {
         try (MulticastSocket socket = new MulticastSocket(MULTICAST_PORT)) {
@@ -75,7 +76,6 @@ public class MessageReceiver extends Thread {
         String documentId = parts[0];
         String content = parts[1];
         tempUpdates.add(documentId + ":" + content);
-        System.out.println(nodeId + " recebeu atualização SYNC e adicionou à lista temporária.");
         sendAck(documentId);
     }
 
@@ -89,6 +89,5 @@ public class MessageReceiver extends Thread {
             }
             return false;
         });
-        System.out.println(nodeId + " aplicou atualização COMMIT para o documento: " + documentId);
     }
 }
